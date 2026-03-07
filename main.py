@@ -2,14 +2,19 @@ import requests
 import numpy as np
 import psycopg2
 import time
+import threading
 from datetime import datetime
 from dotenv import load_dotenv
 import os
+from fastapi import FastAPI 
+import warnings; warnings.filterwarnings('ignore')
 
 load_dotenv()
 
 API_URL = os.getenv("API_URL")
 DATABASE_URL = os.getenv("DATABASE_URL")
+
+app = FastAPI()
 
 def getConnection():
     return psycopg2.connect(DATABASE_URL)
@@ -17,15 +22,16 @@ def getConnection():
 conn = getConnection()
 cursor = conn.cursor()
 
-def SendDataDB(score, confidence,agreement):
+def SendDataDB(score, confidence, agreement):
     global conn, cursor
     try:
         cursor.execute(
             """
-            INSERT INTO model_executions (timestamp, model_score, model_confidence,model_agreement)
-            VALUES (%s, %s, %s,%s)
+            INSERT INTO model_executions
+            (timestamp, model_score, model_confidence, model_agreement)
+            VALUES (%s, %s, %s, %s)
             """,
-            (datetime.now().replace(microsecond=0), score, confidence,agreement)
+            (datetime.now().replace(microsecond=0), score, confidence, agreement)
         )
         conn.commit()
     except psycopg2.Error as e:
@@ -52,14 +58,24 @@ def MakeRequest():
             score = result.get("Score")
             confidence = result.get("Model_Confidence")
             agreement = result.get("Model_Agreement")
-            SendDataDB(score, confidence,agreement)
-            print(f"[{datetime.now().replace(microsecond=0)}] API Request Success: {response.status_code} OK")
+            SendDataDB(score, confidence, agreement)
+            print(f"[{datetime.now().replace(microsecond=0)}] API Request Success : {response.status_code} OK") 
         else:
             print(f"[{datetime.now().replace(microsecond=0)}] API Error: {response.status_code}")
     except requests.exceptions.RequestException as e:
         print("Request Failed:", e)
 
-if __name__ == "__main__":
+def Worker():
     while True:
         MakeRequest()
         time.sleep(30)
+
+@app.on_event("startup") 
+def start_worker():
+    thread = threading.Thread(target=Worker)
+    thread.daemon = True
+    thread.start()
+
+@app.get("/")
+def health():
+    return {"status": "Worker running"} 
