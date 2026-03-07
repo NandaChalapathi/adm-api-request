@@ -58,7 +58,7 @@ def MakeRequest():
             score = result.get("Score")
             confidence = result.get("Model_Confidence")
             agreement = result.get("Model_Agreement")
-            SendDataDB(score, confidence, agreement)
+            #SendDataDB(score, confidence, agreement)
             print(f"[{datetime.now().replace(microsecond=0)}] API Request Success : {response.status_code} OK") 
         else:
             print(f"[{datetime.now().replace(microsecond=0)}] API Error: {response.status_code}")
@@ -79,3 +79,4 @@ def start_worker():
 @app.get("/")
 def health():
     return {"status": "Worker running"} 
+
